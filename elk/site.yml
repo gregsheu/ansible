@@ -1,0 +1,25 @@
+---
+- hosts: esmaster
+  gather_facts: yes
+  roles:
+  - esmaster
+
+- hosts: esdata
+  gather_facts: yes
+  roles:
+  - esdata
+
+- hosts: logstash
+  gather_facts: yes
+  roles:
+  - logstash
+
+- hosts: kibana
+  gather_facts: yes
+  roles:
+  - kibana
+
+- hosts: centos
+  gather_facts: yes
+  roles:
+  - filebeat

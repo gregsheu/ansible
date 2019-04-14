@@ -1,0 +1,91 @@
+---
+- name: load varialbes
+  include_vars: file=group_vars/all
+- name: add elastic repo
+  yum_repository: 
+    name: "{{ repo_name }}"
+    description: "elastic" 
+    baseurl: "{{ elastic_repo }}"
+    gpgkey: "{{ gpgkey }}"
+    gpgcheck: 1 
+    enabled: yes
+  notify: yum clean metadata
+- name: flush yum handlers
+  meta: flush_handlers
+- name: host settings of nofile
+  pam_limits:
+    domain: "{{ item }}"
+    limit_type: "-"
+    limit_item: nofile
+    value: "{{ esmaster_files }}"
+    comment: set file descriptor
+  with_items: 
+    - root
+    - elasticsearch
+- name: host settings of noproc
+  pam_limits:
+    domain: "{{ item }}"
+    limit_type: "-"
+    limit_item: nproc
+    value: "{{ esmaster_threads }}"
+    comment: set threads number
+  with_items: 
+    - root
+    - elasticsearch
+- name: host settings of memlock
+  pam_limits:
+    domain: "{{ item }}"
+    limit_type: "-"
+    limit_item: memlock
+    value: "{{ esmaster_mlock }}"
+    comment: set unlimited memory lock
+  with_items: 
+    - root
+    - elasticsearch
+- name: host settings of swappiess
+  sysctl:
+    name: vm.swappiness
+    value: 1
+    state: present
+- name: host settings of virtual memory
+  sysctl:
+    name: vm.max_map_count
+    value: 262144
+    state: present
+- name: install elasticsearch
+  yum: 
+    name: ["bind-utils", "java-1.8.0", "elasticsearch"]
+- name: add memlock in service file
+  blockinfile:
+    path: /usr/lib/systemd/system/elasticsearch.service
+    insertafter: "^LimitNOFILE=65535"
+    content: |
+      LimitMEMLOCK=infinity
+- name: start elasticsearch
+  systemd:
+    name: elasticsearch 
+    state: started 
+    enabled: yes
+    daemon_reload: yes
+- template:
+    src: templates/elasticsearch.yml.j2
+    dest: /etc/elasticsearch/elasticsearch.yml
+    group: elasticsearch
+    mode: 0644
+  notify: restart elasticsearch
+- template:
+    src: templates/jvm.options.j2
+    dest: /etc/elasticsearch/jvm.options
+    group: elasticsearch
+    mode: 0644
+  notify: restart elasticsearch
+- name: open port elasticsearch on firewall
+  firewalld:
+    zone: public
+    permanent: true
+    state: enabled
+    port: "{{ item }}"
+  with_items: 
+    - 9200/tcp
+    - 9300/tcp
+  notify: restart firewalld

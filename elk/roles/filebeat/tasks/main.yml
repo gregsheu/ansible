@@ -1,0 +1,26 @@
+##install filebeat##
+- name: load varialbes
+  include_vars: file=group_vars/all
+- name: add elastic repo
+  yum_repository: 
+    name: "{{ repo_name }}"
+    description: "elastic" 
+    baseurl: "{{ elastic_repo }}"
+    gpgkey: "{{ gpgkey }}"
+    gpgcheck: 1 
+    enabled: yes
+  notify: yum clean metadata
+- name: flush yum handlers
+  meta: flush_handlers
+- name: install filebeat
+  yum: 
+    name: ["filebeat"]
+- name: start filebeat
+  systemd:
+    name=filebeat state=started enabled=yes
+- template:
+    src: templates/filebeat.yml.j2
+    dest: /etc/filebeat/filebeat.yml
+    mode: 0644
+  notify: restart filebeat
+

@@ -1,0 +1,35 @@
+---
+- name: load varialbes
+  include_vars: file=group_vars/all
+- name: add elastic repo
+  yum_repository: 
+    name: "{{ repo_name }}"
+    description: "elastic" 
+    baseurl: "{{ elastic_repo }}"
+    gpgkey: "{{ gpgkey }}"
+    gpgcheck: 1 
+    enabled: yes
+  notify: yum clean metadata
+- name: flush yum handler
+  meta: flush_handlers
+- name: install kibana
+  yum: 
+    name: ["bind-utils", "kibana"]
+- name: install kibana
+  yum: 
+    name: ["kibana"]
+- name: start kibana
+  systemd:
+    name=kibana state=started enabled=yes
+- template:
+    src: templates/kibana.yml.j2
+    dest: /etc/kibana/kibana.yml
+    mode: 0644
+  notify: restart kibana
+- name: open port kibana on firewall
+  firewalld:
+    zone: public
+    port: 5601/tcp
+    permanent: true
+    state: enabled
+  notify: restart firewalld

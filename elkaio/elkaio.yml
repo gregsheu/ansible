@@ -1,0 +1,108 @@
+- hosts: elk
+  gather_facts: yes
+  handlers:
+    - name: yum clean metadata
+      command: yum clean metadata 
+      args: 
+        warn: no
+    - name: restart firewalld
+      service: name=firewalld state=restarted
+    - name: restart elasticsearch
+      service: name=elasticsearch state=restarted
+    - name: restart logstash
+      service: name=logstash state=restarted
+    - name: restart kibana
+      service: name=kibana state=restarted
+    - name: restart filebeat
+      service: name=filebeat state=restarted
+
+  tasks:
+    - name: load varialbes
+      include_vars: file=el_docker_packer_vars.yml
+
+    - name: add elastic repo
+      yum_repository: name={{ repo_name }} description="elastic" baseurl={{ elastic_repo }} gpgkey={{ gpgkey }} gpgcheck=1 enabled=yes
+      notify: yum-clean-metadata
+    ##install elasticsearch##
+    - name: install elasticsearch
+      yum: 
+        name: ["java-1.8.0", "elasticsearch"]
+    - name: start elasticsearch
+      systemd:
+        name=elasticsearch state=started enabled=yes
+    - template:
+        src: templates/elasticsearch.yml.j2
+        dest: /etc/elasticsearch/elasticsearch.yml
+        group: elasticsearch
+        mode: 0644
+      notify: restart elasticsearch
+    - name: open port elasticsearch on firewall
+      firewalld:
+        zone: public
+        permanent: true
+        state: enabled
+        port: "{{ item }}"
+      with_items: 
+        - 9200/tcp
+        - 9300/tcp
+      notify: restart firewalld
+    ##install logstash##
+    - name: flush handlers
+      meta: flush_handlers 
+    - name: install logstash
+      yum: 
+        name: ["logstash"]
+    - name: start logstash
+      systemd:
+        name=logstash state=started enabled=yes
+    - template:
+        src: templates/logstash.yml.j2
+        dest: /etc/logstash/logstash.yml
+        mode: 0644
+    - template:
+        src: templates/logstash.conf.j2
+        dest: /etc/logstash/conf.d/logstash.conf
+        mode: 0644
+      notify: restart logstash
+    - name: open port logstash on firewall
+      firewalld:
+        zone: public
+        permanent: true
+        state: enabled
+        port: "{{ item }}"
+      with_items: 
+        - 5044/tcp
+        - 5044/udp
+        - 9600/tcp
+      notify: restart firewalld
+    ##install kibana##
+    - name: install kibana
+      yum: 
+        name: ["kibana"]
+    - name: start kibana
+      systemd:
+        name=kibana state=started enabled=yes
+    - template:
+        src: templates/kibana.yml.j2
+        dest: /etc/kibana/kibana.yml
+        mode: 0644
+      notify: restart kibana
+    - name: open port kibana on firewall
+      firewalld:
+        zone: public
+        port: 5601/tcp
+        permanent: true
+        state: enabled
+      notify: restart firewalld
+    ##install filebeat##
+    - name: install filebeat
+      yum: 
+        name: ["filebeat"]
+    - name: start filebeat
+      systemd:
+        name=filebeat state=started enabled=yes
+    - template:
+        src: templates/filebeat.yml.j2
+        dest: /etc/filebeat/filebeat.yml
+        mode: 0644
+      notify: restart filebeat

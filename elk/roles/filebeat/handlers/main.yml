@@ -1,0 +1,7 @@
+---
+- name: yum clean metadata
+  command: yum clean metadata 
+  args: 
+    warn: no
+- name: restart filebeat
+  service: name=filebeat state=restarted

@@ -1,0 +1,25 @@
+# Sample Logstash configuration for creating a simple
+# Beats -> Logstash -> Elasticsearch pipeline.
+
+input {
+  beats {
+    port => 5044
+  }
+}
+
+output {
+  elasticsearch {
+    hosts => ["{% if groups['esmaster'] is defined and groups['esmaster'] %}
+{% for n in range(0, groups['esmaster']|length) -%}
+{% if loop.index == groups['esmaster']|length %}
+{% set h = groups['esmaster'][n] + ':9200' %}
+{% else %}
+{% set h = groups['esmaster'][n] + ':9200", "' %}
+{% endif %}
+{{ h }}
+{%- endfor %}
+{% endif %}"]
+    #this needs to enable setup.kibana in filebeat
+    #index => "%{[@metadata][beat]}-%{[@metadata][version]}-%{+YYYY.MM.dd}"
+  }
+}

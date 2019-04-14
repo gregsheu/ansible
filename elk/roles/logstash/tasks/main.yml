@@ -1,0 +1,45 @@
+---
+- name: load varialbes
+  include_vars: file=group_vars/all
+- name: add elastic repo
+  yum_repository: 
+    name: "{{ repo_name }}"
+    description: "elastic" 
+    baseurl: "{{ elastic_repo }}"
+    gpgkey: "{{ gpgkey }}"
+    gpgcheck: 1 
+    enabled: yes
+  notify: yum clean metadata
+- name: flush yum handler
+  meta: flush_handlers
+- name: install logstash
+  yum: 
+    name: ["bind-utils", "java-1.8.0", "logstash"]
+- name: start logstash
+  systemd:
+    name=logstash state=started enabled=yes
+- template:
+    src: templates/logstash.yml.j2
+    dest: /etc/logstash/logstash.yml
+    mode: 0644
+- template:
+    src: templates/logstash.conf.j2
+    dest: /etc/logstash/conf.d/logstash.conf
+    mode: 0644
+  notify: restart logstash
+- template:
+    src: templates/jvm.options.j2
+    dest: /etc/logstash/jvm.options
+    mode: 0644
+  notify: restart logstash
+- name: open port logstash on firewall
+  firewalld:
+    zone: public
+    permanent: true
+    state: enabled
+    port: "{{ item }}"
+  with_items: 
+    - 5044/tcp
+    - 5044/udp
+    - 9600/tcp
+  notify: restart firewalld
