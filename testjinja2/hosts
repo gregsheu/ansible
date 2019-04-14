@@ -1,0 +1,17 @@
+[esmaster]
+esmaster1
+esmaster2
+esmaster3
+[esdata]
+esdata1
+esdata2
+[esclient]
+esclient1
+esclient2
+[logstash]
+logstash1
+[kibana]
+kibana1
+[centos]
+centos5dev1
+centos6dev1

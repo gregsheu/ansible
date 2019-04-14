@@ -1,0 +1,85 @@
+#["\
+#{% if users is defined and users %}\
+#{% for user in [users] %}\
+#{% set a = user|join('", "') %}\
+#{{ a }}\
+#{% endfor %}\
+#{% endif %}\
+#"]
+
+input {
+  beats {
+    port => 5044
+  }
+}
+
+output {
+  elasticsearch {
+    hosts => ["{% if groups['esmaster'] is defined and groups['esmaster'] %}
+{% for n in range(0, groups['esmaster']|length) -%}
+{% if loop.index == groups['esmaster']|length %}
+{% set h = groups['esmaster'][n] + ':9200' %}
+{% else %}
+{% set h = groups['esmaster'][n] + ':9200", "' %}
+{% endif %}
+{{ h }}
+{%- endfor %}
+{% endif %}"]
+    index => "%{[@metadata][beat]}-%{[@metadata][version]}-%{+YYYY.MM.dd}"
+  }
+}
+elasticsearch.hosts: ["{% if groups['esmaster'] is defined and groups['esmaster'] %}
+{% for n in range(0, groups['esmaster']|length) -%}
+{% if loop.index == groups['esmaster']|length %}
+{% set h = 'http://' + groups['esmaster'][n] + ':9200' %}
+{% else %}
+{% set h = groups['esmaster'][n] + ':9200", "' %}
+{% endif %}
+{{ h }}
+{%- endfor %}
+{% endif %}
+"]
+
+###################### Filebeat Configuration Example #########################
+
+filebeat.inputs:
+
+- type: log
+  client_activity_timeout: 300 
+  # Change to true to enable this input configuration.
+  enabled: true 
+  # Paths that should be crawled and fetched. Glob based paths.
+  paths:
+    - /var/log/*.log
+
+filebeat.config.modules:
+  # Glob pattern for configuration loading
+  path: ${path.config}/modules.d/*.yml
+  reload.enabled: false
+
+setup.template.settings:
+  index.number_of_shards: 3
+  #index.codec: best_compression
+setup.kibana:
+
+  host:"{% for n in range(0, groups['kibana']|length) -%}
+{% if loop.index == groups['kibana']|length %}
+{% set h = groups['kibana'][n] + ':5601' %}
+{% else %}
+{% set h = groups['kibana'][n] + ':5601", "' %}
+{% endif %}
+{{ h }}
+{%- endfor %}"
+
+output.logstash:
+  # The Logstash hosts
+  hosts: ["{% if groups['logstash'] is defined and groups['logstash'] %}
+{% for n in range(0, groups['logstash']|length) -%}
+{% if loop.index == groups['logstash']|length %}
+{% set h = groups['logstash'][n] + ':5404' %}
+{% else %}
+{% set h = groups['logstash'][n] + ':5404", "' %}
+{% endif %}
+{{ h }}
+{%- endfor %}
+{% endif %}"]
